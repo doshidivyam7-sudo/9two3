@@ -1,0 +1,29 @@
+Parameter,Bear Case,Base Case,Bull Case
+Revenue (Rs. Cr),145,210,310
+Revenue CAGR FY26–28E (%),-5.2%,+13.2%,+37.5%
+EBITDA Margin (%),2.0%,6.5%,11.0%
+EBITDA (Rs. Cr),2.9,13.7,34.1
+Depreciation (Rs. Cr),4.2,4.2,4.3
+EBIT (Rs. Cr),-1.3,9.5,29.8
+Finance Cost (Rs. Cr),5.8,5.4,4.8
+PBT (Rs. Cr),-7.1,4.1,25.0
+Tax Rate (%),0%,25%,25%
+PAT (Rs. Cr),-7.1,3.1,18.8
+EPS (Rs.),-1.92,0.84,5.09
+Net Debt (Rs. Cr),65,42,18
+ROCE (%),-1.2%,6.4%,18.1%
+EV/EBITDA Multiple Applied (x),6,12,18
+Enterprise Value (Rs. Cr),17.4,164,614
+Less: Net Debt (Rs. Cr),65,42,18
+Equity Value / Market Cap (Rs. Cr),0,122,596
+No. of Shares (Cr),3.69,3.69,3.69
+Implied Price per Share (Rs.),0,33,161
+Current Price (Rs.),165,165,165
+Implied Return (%),-100%,-80%,+98%
+--- Key Assumptions ---,,,
+Revenue driver,"Order cancellations, weak execution",Moderate Tata order flow + independent wins,Large Tata EPC + airports + petrochemicals
+Margin driver,"Raw material spike, cost overruns","Scale leverage, stable RM costs",Operational leverage + manufacturing mix-shift
+Debt trajectory,Rising — Tata support stretched,Gradual reduction via CFO,Significant reduction; near debt-free
+Tata Group support,Minimal — no new order flow,Moderate — steady subcontracting flow,Strong — material order flow
+Working capital,Worsening — PSU receivables stalled,Stable — partial PSU resolution,Improving — collections discipline
+Key risk,Going concern; Tata withdraws support,Revenue miss; margin compression,Execution slippage; working capital stretch
