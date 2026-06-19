@@ -117,18 +117,14 @@ export async function complete(req: CompletionRequest): Promise<CompletionResult
   };
 }
 
-// When no API keys are configured we still want the UI to be usable, so we
-// return a deterministic structured placeholder. The output is clearly labeled
-// so it's never mistaken for real model output in production.
+// When no API keys are configured we still want the UI to be usable. Return a
+// clearly-labeled placeholder *without* a parsed JSON body so each agent's
+// fallback branch fires — agents validate by checking `result.json`.
 function mockResult(req: CompletionRequest, provider: LLMProvider): CompletionResult {
-  const placeholder = {
-    _placeholder: true,
-    note: "AI provider not configured. Add ANTHROPIC_API_KEY or OPENAI_API_KEY to enable live agent runs.",
-    promptPreview: req.user.slice(0, 240),
-  };
+  const note = "AI provider not configured. Add ANTHROPIC_API_KEY or OPENAI_API_KEY to enable live agent runs.";
   return {
-    text: req.asJson ? JSON.stringify(placeholder) : `[AI offline] ${placeholder.note}`,
-    json: req.asJson ? placeholder : undefined,
+    text: `[AI offline] ${note}`,
+    json: undefined,
     model: "offline-placeholder",
     provider,
   };
