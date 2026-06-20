@@ -8,6 +8,7 @@ import { PeersSection } from "./_components/peers";
 import { AIAnalysisSection } from "./_components/ai-analysis";
 import { NewsSection } from "./_components/news";
 import { DocumentsSection } from "./_components/documents";
+import { ConcallSection } from "./_components/concall";
 import { TabsShell } from "./_components/tabs-shell";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function CompanyResearchPage({ params }: Props) {
           { value: "financials", label: "Financials", content: <FinancialsSection annual={annual} quarterly={quarterly} /> },
           { value: "valuation", label: "Valuation", content: <ValuationSection ticker={ticker} annual={annual} peers={peers} quote={quote ?? undefined} /> },
           { value: "peers", label: "Peers", content: <PeersSection peers={peers} self={profile.ticker} /> },
+          { value: "concall", label: "Concall Intel", content: <ConcallSection ticker={ticker} /> },
           { value: "ai", label: "AI Analysis", content: <AIAnalysisSection ticker={ticker} /> },
           { value: "news", label: "News", content: <NewsSection news={news} /> },
           { value: "documents", label: "Documents", content: <DocumentsSection ticker={ticker} /> },

@@ -3,6 +3,7 @@
 
 import type {
   CompanyProfile,
+  ConcallSummary,
   FinancialPoint,
   MarketDataProvider,
   NewsHeadline,
@@ -234,6 +235,17 @@ const UNIVERSE: SeedRow[] = [
 
 const BY_TICKER = new Map(UNIVERSE.map((r) => [r.ticker, r]));
 
+// Every ticker referenced anywhere in the universe → its sector. This lets us
+// synthesise reasonable concall summaries for the peers of seeded companies
+// even when those peers don't have their own SeedRow.
+const SECTOR_BY_TICKER = new Map<string, string>();
+UNIVERSE.forEach((r) => {
+  SECTOR_BY_TICKER.set(r.ticker, r.sector);
+  r.peers.forEach((p) => {
+    if (!SECTOR_BY_TICKER.has(p)) SECTOR_BY_TICKER.set(p, r.sector);
+  });
+});
+
 function buildAnnual(row: SeedRow, years: number): FinancialPoint[] {
   // Newest-first ordering — consumers (UI, AI agents) expect annual[0] = latest FY.
   const out: FinancialPoint[] = [];
@@ -317,6 +329,227 @@ function buildQuarterly(row: SeedRow, quarters: number): FinancialPoint[] {
 
 function round(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+// Sector-specific concall flavour text — picked up by the synthetic builder
+// so each company's summary sounds plausibly different from its peers.
+const SECTOR_PROFILES: Record<
+  string,
+  {
+    capexNarrative: (intensity: number) => string;
+    orderBookMultiple: number; // order book = revenue * this
+    sectorRisks: string[];
+    capAllocVerbs: string[];
+    speakerTitles: [string, string];
+    callQuirks: string[];
+  }
+> = {
+  Energy: {
+    capexNarrative: (i) => `Heavy ongoing brownfield capex (~₹${Math.round(i)} kCr/yr) for petchem & new-energy build-out.`,
+    orderBookMultiple: 0,
+    sectorRisks: ["Crude price volatility", "Refining crack spread compression", "Telecom ARPU stagnation"],
+    capAllocVerbs: ["Reinvesting cash flows into new-energy verticals", "Maintaining ~30% payout to deleveraging"],
+    speakerTitles: ["Chairman & MD", "Group CFO"],
+    callQuirks: ["Reiterated NewCo timelines", "Highlighted hyperscaler cloud wins for Jio Platforms"],
+  },
+  "Information Technology": {
+    capexNarrative: (i) => `Capex stays modest (~${(i * 100).toFixed(1)}% of revenue); platform investments via opex.`,
+    orderBookMultiple: 1.05,
+    sectorRisks: ["Discretionary spend pause in BFSI / Hi-Tech verticals", "Pricing pressure on managed services", "Wage inflation in onshore mix"],
+    capAllocVerbs: ["Returning >100% of FCF via buybacks + dividends", "Tuck-in M&A in cloud / AI consulting"],
+    speakerTitles: ["CEO & MD", "CFO"],
+    callQuirks: ["TCV in line with prior quarter", "Headcount trimming offset by utilisation gains"],
+  },
+  Financials: {
+    capexNarrative: () => `Capex immaterial; investment is in branch network, distribution and tech stack.`,
+    orderBookMultiple: 0,
+    sectorRisks: ["Net interest margin compression as repo rate cycles", "Asset-quality slippage in unsecured retail", "Liquidity / ALM mismatch"],
+    capAllocVerbs: ["Building Tier-1 buffer for growth", "Calibrated dividend within RBI norms"],
+    speakerTitles: ["MD & CEO", "CFO"],
+    callQuirks: ["Credit cost guidance held", "Watching unsecured stress in early bucket flows"],
+  },
+  Industrials: {
+    capexNarrative: (i) => `Greenfield + capacity de-bottlenecking; ₹${Math.round(i)} Cr over next 18 months.`,
+    orderBookMultiple: 1.6,
+    sectorRisks: ["Working-capital stretch on large EPC orders", "Raw-material (steel/SS) price volatility", "Export demand cyclicality"],
+    capAllocVerbs: ["Funding capex from internal accruals", "Maintaining net-cash balance sheet"],
+    speakerTitles: ["MD", "CFO"],
+    callQuirks: ["Cited export wins in LNG / industrial gas", "Reiterated ROCE > 25% through cycle"],
+  },
+};
+
+const DEFAULT_SECTOR = SECTOR_PROFILES.Industrials;
+
+function concallSummaryFor(row: SeedRow): ConcallSummary {
+  const profile = SECTOR_PROFILES[row.sector] ?? DEFAULT_SECTOR;
+  const revGrowthPct = row.growth.revenue * 100;
+  const ebitdaMarginPct = row.ebitdaMarginFY24 * 100;
+  const sectorCapexIntensity = row.sector === "Information Technology" ? 0.025 : 0.06;
+  const capexCr = row.revenueFY24 * sectorCapexIntensity;
+  const orderBookCr = profile.orderBookMultiple ? Math.round(row.revenueFY24 * profile.orderBookMultiple) : undefined;
+
+  const segments: ConcallSegmentNote[] = row.segments.map((s, i) => ({
+    segment: s.name,
+    commentary:
+      i === 0
+        ? `Largest contributor; demand momentum holding into next quarter, pricing stable.`
+        : i === row.segments.length - 1
+        ? `Smaller piece; selective bidding to protect margin profile.`
+        : `Steady volume growth, mix improving toward higher-margin offerings.`,
+    direction:
+      i === 0 ? "ACCELERATING" : i === row.segments.length - 1 ? "DECELERATING" : "STABLE",
+  }));
+
+  const drivers = [
+    `${row.segments[0].name} ramping with order conversion`,
+    `Premiumisation in ${row.segments[Math.min(1, row.segments.length - 1)].name}`,
+    row.sector === "Information Technology"
+      ? "GenAI-led deals contributing to TCV"
+      : `Exports / India capex cycle tailwind`,
+  ];
+
+  const quotes = [
+    {
+      speaker: profile.speakerTitles[0],
+      quote:
+        row.sector === "Financials"
+          ? "We see no need to revise our credit cost guidance for the full year despite some early-bucket noise in unsecured."
+          : row.sector === "Information Technology"
+          ? "We exit Q4 with the strongest deal pipeline in eight quarters and a TCV book that supports our growth aspiration into the next fiscal."
+          : `${row.name.split(" ")[0]} is well-positioned to deliver another year of >${Math.round(revGrowthPct)}% revenue growth at sustained margins.`,
+      topic: "Outlook",
+    },
+    {
+      speaker: profile.speakerTitles[1],
+      quote:
+        row.sector === "Financials"
+          ? "Our incremental cost of funds has stabilised and we expect NIM to find a floor over the next two quarters."
+          : `We expect EBITDA margins to remain in the ${(ebitdaMarginPct - 0.5).toFixed(1)}–${(ebitdaMarginPct + 0.5).toFixed(1)}% band through FY25.`,
+      topic: "Margins",
+    },
+  ];
+
+  return {
+    ticker: row.ticker,
+    companyName: row.name,
+    period: "Q4 FY24",
+    callDate: new Date(Date.UTC(2024, 4, 8)),
+    speakers: [profile.speakerTitles[0], profile.speakerTitles[1], "Head of IR"],
+    revenueGuidance: {
+      metric: "Revenue growth",
+      value: `${revGrowthPct.toFixed(0)}–${(revGrowthPct + 2).toFixed(0)}% YoY`,
+      horizon: "FY25E",
+      confidence: row.growth.revenue >= 0.18 ? "HIGH" : row.growth.revenue >= 0.1 ? "MEDIUM" : "LOW",
+    },
+    ebitdaMarginGuidance: {
+      metric: "EBITDA margin",
+      value: `${(ebitdaMarginPct - 0.5).toFixed(1)}–${(ebitdaMarginPct + 0.5).toFixed(1)}%`,
+      horizon: "FY25E",
+      confidence: "MEDIUM",
+    },
+    capexGuidance: {
+      metric: "Capex",
+      value: row.sector === "Financials"
+        ? `~₹${Math.round(row.revenueFY24 * 0.02).toLocaleString("en-IN")} Cr (tech + distribution)`
+        : `~₹${Math.round(capexCr).toLocaleString("en-IN")} Cr`,
+      horizon: "FY25E",
+      confidence: "MEDIUM",
+    },
+    orderBookCr,
+    orderBookGrowthYoY: orderBookCr ? row.growth.revenue * 1.1 : undefined,
+    growthDrivers: drivers,
+    segmentCommentary: segments,
+    capitalAllocation: profile.capAllocVerbs,
+    risks: profile.sectorRisks,
+    redFlags: row.growth.revenue < 0.1
+      ? [`Single-digit growth guidance below trend — watch demand reset`]
+      : [],
+    notableQuotes: quotes,
+    tone: row.growth.revenue >= 0.18 ? "POSITIVE" : row.growth.revenue >= 0.1 ? "CAUTIOUS" : "NEGATIVE",
+    source: "synthetic",
+  };
+}
+
+// Synthesise a concall summary for a peer ticker that doesn't have a full
+// SeedRow — uses the sector profile + deterministic per-ticker variation
+// (hash of the ticker) so each peer reads distinct but plausible.
+function syntheticPeerConcall(ticker: string, sector: string): ConcallSummary {
+  const profile = SECTOR_PROFILES[sector] ?? DEFAULT_SECTOR;
+  // Stable pseudo-random based on ticker so values don't change per request
+  const h = [...ticker].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 0);
+  const rand = (lo: number, hi: number) => lo + ((h % 1000) / 1000) * (hi - lo);
+
+  const sectorBaseGrowth: Record<string, number> = {
+    Energy: 0.08,
+    "Information Technology": 0.09,
+    Financials: 0.16,
+    Industrials: 0.18,
+  };
+  const baseGrowth = sectorBaseGrowth[sector] ?? 0.12;
+  const growth = baseGrowth + (rand(0, 6) - 3) / 100; // ±3pp
+  const ebitdaMargin =
+    sector === "Information Technology"
+      ? 0.24 + rand(-0.02, 0.03)
+      : sector === "Financials"
+      ? 0.6 + rand(-0.05, 0.05)
+      : sector === "Energy"
+      ? 0.17 + rand(-0.02, 0.03)
+      : 0.18 + rand(-0.03, 0.05);
+
+  const revenueGuidanceValue = `${(growth * 100).toFixed(0)}–${(growth * 100 + 2).toFixed(0)}% YoY`;
+  const ebitdaBand = `${((ebitdaMargin - 0.005) * 100).toFixed(1)}–${((ebitdaMargin + 0.005) * 100).toFixed(1)}%`;
+
+  return {
+    ticker,
+    companyName: ticker,
+    period: "Q4 FY24",
+    callDate: new Date(Date.UTC(2024, 4, 8)),
+    speakers: [profile.speakerTitles[0], profile.speakerTitles[1]],
+    revenueGuidance: {
+      metric: "Revenue growth",
+      value: revenueGuidanceValue,
+      horizon: "FY25E",
+      confidence: growth >= 0.18 ? "HIGH" : growth >= 0.1 ? "MEDIUM" : "LOW",
+    },
+    ebitdaMarginGuidance: {
+      metric: "EBITDA margin",
+      value: ebitdaBand,
+      horizon: "FY25E",
+      confidence: "MEDIUM",
+    },
+    capexGuidance: {
+      metric: "Capex",
+      value:
+        sector === "Financials"
+          ? "Immaterial (tech / distribution)"
+          : `~${(growth * 100 * 0.6).toFixed(0)}% of revenue`,
+      horizon: "FY25E",
+      confidence: "MEDIUM",
+    },
+    orderBookCr: profile.orderBookMultiple ? Math.round(rand(800, 4000)) : undefined,
+    orderBookGrowthYoY: profile.orderBookMultiple ? growth * 1.05 : undefined,
+    growthDrivers:
+      sector === "Information Technology"
+        ? ["BFSI ramp-up post pause", "GenAI-led deal wins", "Cloud / data modernisation"]
+        : sector === "Financials"
+        ? ["Retail loan book growth", "NIM expansion as rates settle", "Distribution-led customer adds"]
+        : sector === "Energy"
+        ? ["O2C demand recovery", "New-energy capex monetisation", "Retail / digital cross-sell"]
+        : ["Order book conversion", "Export-led demand", "Manufacturing capex tailwind"],
+    segmentCommentary: [],
+    capitalAllocation: profile.capAllocVerbs,
+    risks: profile.sectorRisks,
+    redFlags: growth < 0.1 ? ["Single-digit growth guidance is below our long-term trend"] : [],
+    notableQuotes: [
+      {
+        speaker: profile.speakerTitles[0],
+        quote: `We see ${(growth * 100).toFixed(0)}% growth as the right base for FY25 with EBITDA margins broadly in line.`,
+        topic: "Outlook",
+      },
+    ],
+    tone: growth >= 0.18 ? "POSITIVE" : growth >= 0.1 ? "CAUTIOUS" : "NEGATIVE",
+    source: "synthetic",
+  };
 }
 
 function newsFor(row: SeedRow): NewsHeadline[] {
@@ -480,6 +713,16 @@ export class MockMarketDataProvider implements MarketDataProvider {
       { index: "NIFTY SMLCAP 100", level: 18460, changePct: 0.0091 },
       { index: "INDIA VIX", level: 13.4, changePct: -0.022 },
     ];
+  }
+
+  async getConcallSummary(ticker: string): Promise<ConcallSummary | null> {
+    const T = ticker.toUpperCase();
+    const r = BY_TICKER.get(T);
+    if (r) return concallSummaryFor(r);
+    // Peer of a seeded company without its own SeedRow — synthesise from sector.
+    const sector = SECTOR_BY_TICKER.get(T);
+    if (sector) return syntheticPeerConcall(T, sector);
+    return null;
   }
 }
 

@@ -97,6 +97,46 @@ export interface NewsHeadline {
   sentiment?: number;
 }
 
+export interface ConcallGuidanceItem {
+  metric: string;
+  value: string;
+  horizon: string;
+  confidence: "LOW" | "MEDIUM" | "HIGH";
+}
+
+export interface ConcallSegmentNote {
+  segment: string;
+  commentary: string;
+  // Direction the segment is trending per management
+  direction: "ACCELERATING" | "STABLE" | "DECELERATING";
+}
+
+export interface ConcallSummary {
+  ticker: string;
+  companyName: string;
+  // e.g. "Q4 FY24", "Q1 FY25"
+  period: string;
+  callDate: Date;
+  speakers: string[];
+  // Structured guidance the comparison agent compares across companies
+  revenueGuidance: ConcallGuidanceItem;
+  ebitdaMarginGuidance: ConcallGuidanceItem;
+  capexGuidance: ConcallGuidanceItem;
+  orderBookCr?: number;
+  orderBookGrowthYoY?: number;
+  growthDrivers: string[];
+  segmentCommentary: ConcallSegmentNote[];
+  capitalAllocation: string[];
+  risks: string[];
+  redFlags: string[];
+  notableQuotes: { speaker: string; quote: string; topic: string }[];
+  // Aggregate sentiment: positive / cautious / negative
+  tone: "POSITIVE" | "CAUTIOUS" | "NEGATIVE";
+  // Provenance — "synthetic" when this is provider-baked sample data,
+  // "uploaded" when derived from a user's uploaded transcript.
+  source: "synthetic" | "uploaded" | "provider";
+}
+
 export interface MarketDataProvider {
   name: string;
 
@@ -109,4 +149,5 @@ export interface MarketDataProvider {
   getPeers(ticker: string): Promise<PeerSnapshot[]>;
   getNews(ticker: string, limit?: number): Promise<NewsHeadline[]>;
   getMarketSnapshot(): Promise<{ index: string; level: number; changePct: number }[]>;
+  getConcallSummary(ticker: string): Promise<ConcallSummary | null>;
 }

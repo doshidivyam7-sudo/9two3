@@ -166,4 +166,10 @@ export class FMPMarketDataProvider implements MarketDataProvider {
   async getMarketSnapshot() {
     return this.fallback.getMarketSnapshot();
   }
+
+  // FMP doesn't expose concall transcripts on Indian tickers — fall back to
+  // the deterministic synthetic summary so the comparison feature still works.
+  getConcallSummary(ticker: string) {
+    return this.fallback.getConcallSummary(ticker);
+  }
 }

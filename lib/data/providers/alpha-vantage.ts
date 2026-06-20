@@ -111,4 +111,7 @@ export class AlphaVantageProvider implements MarketDataProvider {
   getMarketSnapshot() {
     return this.fallback.getMarketSnapshot();
   }
+  getConcallSummary(t: string) {
+    return this.fallback.getConcallSummary(t);
+  }
 }
