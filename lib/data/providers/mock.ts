@@ -2,10 +2,13 @@
 // without external API keys; used as a safe fallback by the real providers.
 
 import type {
+  AnnouncementCategory,
   CompanyProfile,
   ConcallSummary,
+  CorporateAnnouncement,
   FinancialPoint,
   MarketDataProvider,
+  MarketIndex,
   NewsHeadline,
   PeerSnapshot,
   PriceQuote,
@@ -620,6 +623,242 @@ function syntheticPeerConcall(ticker: string, sector: string): ConcallSummary {
   };
 }
 
+// ---------- Corporate announcements (synthetic per company) ----------
+
+const DAY = 86_400_000;
+
+interface SyntheticAnnouncementTemplate {
+  category: AnnouncementCategory;
+  daysAgo: number;
+  source: CorporateAnnouncement["source"];
+  impact: CorporateAnnouncement["impact"];
+  isMaterial: boolean;
+  build: (row: SeedRow, ctx: ConcallSummary) => { headline: string; summary: string };
+}
+
+function fmtCr(n: number): string {
+  return `₹${Math.round(n).toLocaleString("en-IN")} Cr`;
+}
+
+function announcementTemplates(): SyntheticAnnouncementTemplate[] {
+  return [
+    // ~6 weeks ago — Q4 FY26 results
+    {
+      category: "RESULTS",
+      daysAgo: 43,
+      source: "BSE",
+      impact: "POSITIVE",
+      isMaterial: true,
+      build: (row, ctx) => {
+        const revFY26 = row.revenueFY24 * Math.pow(1 + row.growth.revenue, 2);
+        const patFY26 = revFY26 * row.patMarginFY24 * 1.02;
+        const yoyRev = row.growth.revenue * 100;
+        const yoyPat = row.growth.pat * 100;
+        return {
+          headline: `Audited Financial Results — Quarter & Year ended March 31, 2026`,
+          summary:
+            `FY26 revenue ${fmtCr(revFY26)} (+${yoyRev.toFixed(0)}% YoY); PAT ${fmtCr(patFY26)} (+${yoyPat.toFixed(0)}% YoY). ` +
+            `EBITDA margin ${(ctx.ebitdaMarginGuidance.value)} — broadly in line with guided band. ` +
+            `Board recommended final dividend; record date to be intimated separately.`,
+        };
+      },
+    },
+    // ~6 weeks ago — board meeting outcome / dividend
+    {
+      category: "DIVIDEND",
+      daysAgo: 43,
+      source: "NSE",
+      impact: "POSITIVE",
+      isMaterial: false,
+      build: (row) => {
+        const payout = row.sector === "Information Technology" ? 0.6 :
+                       row.sector === "Financials" ? 0.2 : 0.25;
+        const div = Math.max(1, Math.round((row.revenueFY24 * row.patMarginFY24 * payout / row.shares) * 10) / 10);
+        return {
+          headline: `Final Dividend Recommended — FY26`,
+          summary:
+            `Board recommended a final dividend of ₹${div}/equity share (face value ₹${row.shares > 100 ? 1 : 2}). ` +
+            `Total payout works out to roughly ${(payout * 100).toFixed(0)}% of FY26 PAT. ` +
+            `Subject to shareholder approval at the upcoming AGM.`,
+        };
+      },
+    },
+    // ~5 weeks ago — concall transcript availability
+    {
+      category: "REGULATORY",
+      daysAgo: 35,
+      source: "Company",
+      impact: "NEUTRAL",
+      isMaterial: false,
+      build: (row, ctx) => ({
+        headline: `Q4 FY26 Earnings Conference Call — Transcript & Presentation`,
+        summary:
+          `Concall held on 8 May 2026; management reiterated ${ctx.revenueGuidance.value} revenue guidance for ${ctx.revenueGuidance.horizon}. ` +
+          `Capex plan of ${ctx.capexGuidance.value} for FY27 reaffirmed. ` +
+          `Transcript and investor presentation now available on the company website.`,
+      }),
+    },
+    // ~3 weeks ago — order win / capex sanction (sector specific)
+    {
+      category: "ORDER_WIN",
+      daysAgo: 22,
+      source: "BSE",
+      impact: "POSITIVE",
+      isMaterial: true,
+      build: (row) => {
+        const sector = row.sector;
+        if (sector === "Industrials") {
+          const orderCr = Math.round(row.revenueFY24 * 0.18);
+          return {
+            headline: `Large Export Order Won in ${row.industry}`,
+            summary:
+              `${row.name.split(" ")[0]} bagged a ${fmtCr(orderCr)} order from a European industrial-gas major for cryogenic equipment. ` +
+              `Execution scheduled over the next 18 months; adds ~${(orderCr / row.revenueFY24 * 100).toFixed(0)}% to current order book. ` +
+              `Pricing in line with existing portfolio; no margin dilution expected.`,
+          };
+        }
+        if (sector === "Information Technology") {
+          const dealUsdMn = Math.round((row.revenueFY24 * 0.04) / 83);
+          return {
+            headline: `Multi-Year Digital Transformation Engagement Signed`,
+            summary:
+              `${row.name.split(" ")[0]} signed a ~$${dealUsdMn}M, 5-year managed-services contract with a North American BFSI client. ` +
+              `Engagement spans cloud migration, data modernisation and a GenAI platform rollout. ` +
+              `Onboarding to commence in Q2 FY27; modest revenue contribution from H2.`,
+          };
+        }
+        if (sector === "Financials") {
+          return {
+            headline: `Disbursement Milestone — ${row.industry}`,
+            summary:
+              `${row.name.split(" ")[0]} crossed ₹${Math.round(row.debtCr * 1.3 / 1000)}k Cr in disbursements for the quarter, a multi-year high. ` +
+              `Growth led by retail / urban infrastructure book; asset quality stable QoQ. ` +
+              `No change to FY27 guidance.`,
+          };
+        }
+        // Energy / Default
+        const capexCr = Math.round(row.revenueFY24 * 0.04);
+        return {
+          headline: `Brownfield Capex Approval — Petchem / New Energy`,
+          summary:
+            `Board approved capex of ${fmtCr(capexCr)} for capacity expansion at existing site. ` +
+            `Commissioning expected in 24–30 months; IRR estimated above WACC. ` +
+            `Funded from internal accruals; no incremental borrowing planned.`,
+        };
+      },
+    },
+    // ~2 weeks ago — insider trade disclosure
+    {
+      category: "INSIDER_TRADE",
+      daysAgo: 14,
+      source: "SEBI",
+      impact: "NEUTRAL",
+      isMaterial: false,
+      build: (row) => {
+        // row.shares is in Crore. Convert to absolute, take a tiny realistic
+        // slice (~0.0005% of float ≈ insider tranche size in actual filings).
+        const absShares = row.shares * 1e7;
+        const insiderShares = Math.max(500, Math.round(absShares * 0.0000005 / 100) * 100);
+        return {
+          headline: `Disclosure under SEBI (PIT) Regulations — Designated Persons`,
+          summary:
+            `Aggregate market purchases by designated persons of ${row.ticker} during the trading window: ` +
+            `${insiderShares.toLocaleString("en-IN")} shares at an average price of ₹${Math.round(row.price * 0.98).toLocaleString("en-IN")}. ` +
+            `Filed under Reg 7(2) of SEBI (Prohibition of Insider Trading) Regulations, 2015.`,
+        };
+      },
+    },
+    // ~10 days ago — credit rating action (financials) or analyst day (others)
+    {
+      category: "CREDIT_RATING",
+      daysAgo: 10,
+      source: "Company",
+      impact: "POSITIVE",
+      isMaterial: false,
+      build: (row) => {
+        if (row.sector === "Financials") {
+          return {
+            headline: `Credit Rating Reaffirmed — Long-Term Borrowings`,
+            summary:
+              `Rating agency CRISIL reaffirmed long-term rating at AAA/Stable on ₹${Math.round(row.debtCr * 0.6 / 1000)}k Cr of NCDs. ` +
+              `Cited strong capitalisation, stable asset quality and improving profitability. ` +
+              `Short-term commercial paper rated A1+ continues unchanged.`,
+          };
+        }
+        return {
+          headline: `Investor / Analyst Day — Schedule`,
+          summary:
+            `Company to host an in-person investor & analyst day at Mumbai HQ on 28 Jun 2026. ` +
+            `Senior management to present medium-term strategy, capex roadmap and segment outlook. ` +
+            `Webcast link will be made available on the IR website prior to the event.`,
+        };
+      },
+    },
+    // ~5 days ago — AGM notice
+    {
+      category: "BOARD_MEETING",
+      daysAgo: 5,
+      source: "BSE",
+      impact: "NEUTRAL",
+      isMaterial: false,
+      build: (row) => ({
+        headline: `Notice of Annual General Meeting — FY26`,
+        summary:
+          `AGM to be held on 24 Jul 2026 via video conferencing in compliance with MCA / SEBI circulars. ` +
+          `Cut-off date for e-voting: 17 Jul 2026; remote e-voting opens 21 Jul. ` +
+          `Notice, annual report and proxy forms dispatched electronically to shareholders.`,
+      }),
+    },
+    // ~2 days ago — regulatory / segment update
+    {
+      category: "REGULATORY",
+      daysAgo: 2,
+      source: "NSE",
+      impact: "NEUTRAL",
+      isMaterial: false,
+      build: (row) => ({
+        headline: `Intimation under Regulation 30 — Material Information`,
+        summary:
+          `Company informed exchanges of receipt of regulatory clarification from ${row.sector === "Financials" ? "RBI" : "the sectoral regulator"} ` +
+          `regarding ongoing compliance items in the ordinary course of business. ` +
+          `No financial impact; disclosure made in the interest of transparency.`,
+      }),
+    },
+  ];
+}
+
+function announcementsForCompany(row: SeedRow): CorporateAnnouncement[] {
+  const ctx = concallSummaryFor(row);
+  const now = Date.now();
+  // Hash on (ticker × template index) so every company-template pair gets
+  // independent jitter — prevents the global feed from clustering all
+  // companies' "regulatory" items at the top, then all "AGM", etc.
+  const tickerHash = [...row.ticker].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 0);
+  return announcementTemplates().map((t, i) => {
+    const slotHash = (tickerHash * 1009 + i * 6151) >>> 0;
+    // ±6 days of jitter per (company, template) — wide enough that 7 items
+    // from the same template spread across two weeks and interleave with
+    // other templates' jittered windows.
+    const dayJitter = (slotHash % 13) - 6;
+    const hourOffset = (slotHash >> 4) % 23;
+    const { headline, summary } = t.build(row, ctx);
+    const days = Math.max(0, t.daysAgo + dayJitter);
+    const offsetMs = days * DAY + hourOffset * 3_600_000 + i * 47 * 1000;
+    return {
+      id: `${row.ticker}-${t.category}-${i}`,
+      ticker: row.ticker,
+      companyName: row.name,
+      category: t.category,
+      headline,
+      summary,
+      announcedAt: new Date(now - offsetMs),
+      source: t.source,
+      impact: t.impact,
+      isMaterial: t.isMaterial,
+    };
+  });
+}
+
 function newsFor(row: SeedRow): NewsHeadline[] {
   const now = Date.now();
   const day = 86400_000;
@@ -788,14 +1027,27 @@ export class MockMarketDataProvider implements MarketDataProvider {
     return newsFor(r).slice(0, limit);
   }
 
-  async getMarketSnapshot() {
-    // Plausible mid-FY27 levels (today ≈ 20 Jun 2026)
+  async getMarketSnapshot(): Promise<MarketIndex[]> {
+    // Plausible mid-FY27 levels as of ~20 Jun 2026. Daily moves are bounded
+    // and grouped so the UI can split broad / sector / vol strips.
     return [
-      { index: "NIFTY 50", level: 27820, changePct: 0.0038 },
-      { index: "BANK NIFTY", level: 61450, changePct: -0.0014 },
-      { index: "NIFTY MIDCAP 100", level: 66900, changePct: 0.0061 },
-      { index: "NIFTY SMLCAP 100", level: 21680, changePct: 0.0084 },
-      { index: "INDIA VIX", level: 14.1, changePct: -0.018 },
+      // Broad market
+      { index: "SENSEX",            group: "BROAD",      level: 92418, changePct: 0.0041 },
+      { index: "NIFTY 50",          group: "BROAD",      level: 28192, changePct: 0.0046 },
+      { index: "NIFTY NEXT 50",     group: "BROAD",      level: 79640, changePct: 0.0058 },
+      { index: "BANK NIFTY",        group: "BROAD",      level: 62830, changePct: -0.0009 },
+      { index: "NIFTY MIDCAP 100",  group: "BROAD",      level: 68420, changePct: 0.0073 },
+      { index: "NIFTY SMLCAP 100",  group: "BROAD",      level: 22180, changePct: 0.0091 },
+      // Sectors
+      { index: "NIFTY IT",          group: "SECTOR",     level: 47820, changePct: 0.0024 },
+      { index: "NIFTY AUTO",        group: "SECTOR",     level: 27640, changePct: 0.0065 },
+      { index: "NIFTY PHARMA",      group: "SECTOR",     level: 25840, changePct: 0.0017 },
+      { index: "NIFTY FMCG",        group: "SECTOR",     level: 64280, changePct: -0.0028 },
+      { index: "NIFTY METAL",       group: "SECTOR",     level: 10720, changePct: 0.0119 },
+      { index: "NIFTY REALTY",      group: "SECTOR",     level: 1285,  changePct: 0.0098 },
+      { index: "NIFTY ENERGY",      group: "SECTOR",     level: 41950, changePct: 0.0033 },
+      // Volatility
+      { index: "INDIA VIX",         group: "VOLATILITY", level: 13.8,  changePct: -0.022 },
     ];
   }
 
@@ -807,6 +1059,25 @@ export class MockMarketDataProvider implements MarketDataProvider {
     const sector = SECTOR_BY_TICKER.get(T);
     if (sector) return syntheticPeerConcall(T, sector);
     return null;
+  }
+
+  async getCorporateAnnouncements(opts?: {
+    ticker?: string;
+    limit?: number;
+    category?: AnnouncementCategory;
+  }): Promise<CorporateAnnouncement[]> {
+    let items: CorporateAnnouncement[] = [];
+    if (opts?.ticker) {
+      const r = BY_TICKER.get(opts.ticker.toUpperCase());
+      if (r) items = announcementsForCompany(r);
+    } else {
+      // Global feed — collect across the universe.
+      items = UNIVERSE.flatMap((r) => announcementsForCompany(r));
+    }
+    if (opts?.category) items = items.filter((a) => a.category === opts.category);
+    items.sort((a, b) => b.announcedAt.getTime() - a.announcedAt.getTime());
+    if (opts?.limit) items = items.slice(0, opts.limit);
+    return items;
   }
 }
 

@@ -1,11 +1,13 @@
 import Link from "next/link";
-import { ArrowUpRight, ArrowDownRight, FileText, ShieldCheck, Eye, Briefcase } from "lucide-react";
+import { FileText, ShieldCheck, Eye, Briefcase } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { marketData } from "@/lib/data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { fmtCr, fmtPctValue, fmtDate } from "@/lib/format";
+import { MarketStrip } from "@/components/markets/market-strip";
+import { AnnouncementsFeed } from "@/components/announcements/announcements-feed";
+import { fmtDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -46,20 +48,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        {indices.map((idx) => (
-          <div key={idx.index} className="rounded-lg border border-border bg-card p-3">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{idx.index}</div>
-            <div className="mt-1 font-mono text-lg font-semibold tabular-nums">
-              {idx.level.toLocaleString("en-IN", { maximumFractionDigits: 1 })}
-            </div>
-            <div className={cn("mt-0.5 flex items-center gap-1 text-xs font-medium", idx.changePct >= 0 ? "stat-bull" : "stat-bear")}>
-              {idx.changePct >= 0 ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
-              {fmtPctValue(idx.changePct * 100)}
-            </div>
-          </div>
-        ))}
-      </div>
+      <MarketStrip indices={indices} />
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
@@ -135,10 +124,14 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
+        <div className="lg:col-span-2">
+          <AnnouncementsFeed limit={10} title="Corporate Announcements" />
+        </div>
+
+        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" /> Recent reports</CardTitle>
-            <Link href="/research" className="text-xs text-muted-foreground hover:text-foreground">New report →</Link>
+            <Link href="/research" className="text-xs text-muted-foreground hover:text-foreground">New →</Link>
           </CardHeader>
           <CardContent>
             {recentReports.length === 0 ? (

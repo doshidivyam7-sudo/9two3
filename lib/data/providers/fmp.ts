@@ -172,4 +172,11 @@ export class FMPMarketDataProvider implements MarketDataProvider {
   getConcallSummary(ticker: string) {
     return this.fallback.getConcallSummary(ticker);
   }
+
+  // NSE / BSE announcement feeds aren't covered by FMP — synthetic for now.
+  // A real implementation would poll the exchange announcement APIs and run
+  // the summariser agent on each new filing.
+  getCorporateAnnouncements(opts?: Parameters<typeof this.fallback.getCorporateAnnouncements>[0]) {
+    return this.fallback.getCorporateAnnouncements(opts);
+  }
 }

@@ -137,6 +137,46 @@ export interface ConcallSummary {
   source: "synthetic" | "uploaded" | "provider";
 }
 
+export type AnnouncementCategory =
+  | "RESULTS"
+  | "DIVIDEND"
+  | "BOARD_MEETING"
+  | "CAPITAL_RAISE"
+  | "ALLOTMENT"
+  | "MA"
+  | "CREDIT_RATING"
+  | "INSIDER_TRADE"
+  | "CAPEX"
+  | "ORDER_WIN"
+  | "REGULATORY"
+  | "MANAGEMENT_CHANGE"
+  | "OTHER";
+
+export interface CorporateAnnouncement {
+  id: string;
+  ticker: string;
+  companyName: string;
+  category: AnnouncementCategory;
+  headline: string;
+  // Up to 3 sentences — what an analyst would jot in their morning notes.
+  summary: string;
+  announcedAt: Date;
+  source: "NSE" | "BSE" | "SEBI" | "Company" | "Other";
+  url?: string;
+  // Materiality flag — how meaningfully this should move the thesis.
+  impact: "POSITIVE" | "NEGATIVE" | "NEUTRAL";
+  // Whether the impact rises to "must read for holders" priority.
+  isMaterial: boolean;
+}
+
+export interface MarketIndex {
+  index: string;
+  // ISO-ish group used by the UI to lay out top-row + sector strip.
+  group: "BROAD" | "SECTOR" | "VOLATILITY";
+  level: number;
+  changePct: number;
+}
+
 export interface MarketDataProvider {
   name: string;
 
@@ -148,6 +188,9 @@ export interface MarketDataProvider {
   getRevenueSegments(ticker: string): Promise<SegmentMix[]>;
   getPeers(ticker: string): Promise<PeerSnapshot[]>;
   getNews(ticker: string, limit?: number): Promise<NewsHeadline[]>;
-  getMarketSnapshot(): Promise<{ index: string; level: number; changePct: number }[]>;
+  getMarketSnapshot(): Promise<MarketIndex[]>;
   getConcallSummary(ticker: string): Promise<ConcallSummary | null>;
+  // Continually-tracked corporate announcements. Pass `ticker` for a single
+  // company; omit for a global feed across the universe.
+  getCorporateAnnouncements(opts?: { ticker?: string; limit?: number; category?: AnnouncementCategory }): Promise<CorporateAnnouncement[]>;
 }
