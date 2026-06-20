@@ -235,8 +235,9 @@ const UNIVERSE: SeedRow[] = [
 const BY_TICKER = new Map(UNIVERSE.map((r) => [r.ticker, r]));
 
 function buildAnnual(row: SeedRow, years: number): FinancialPoint[] {
+  // Newest-first ordering — consumers (UI, AI agents) expect annual[0] = latest FY.
   const out: FinancialPoint[] = [];
-  for (let i = years - 1; i >= 0; i--) {
+  for (let i = 0; i < years; i++) {
     const fy = 2024 - i;
     const decay = Math.pow(1 + row.growth.revenue, -i);
     const decayEbitda = Math.pow(1 + row.growth.ebitda, -i);
@@ -289,11 +290,12 @@ function buildAnnual(row: SeedRow, years: number): FinancialPoint[] {
 }
 
 function buildQuarterly(row: SeedRow, quarters: number): FinancialPoint[] {
+  // annual is newest-first; index 0 = latest FY.
   const annual = buildAnnual(row, Math.ceil(quarters / 4) + 1);
   const out: FinancialPoint[] = [];
   for (let i = 0; i < quarters; i++) {
-    const fyIdx = annual.length - 1 - Math.floor(i / 4);
-    const a = annual[Math.max(fyIdx, 0)];
+    const fyIdx = Math.min(Math.floor(i / 4), annual.length - 1);
+    const a = annual[fyIdx];
     const q = 4 - (i % 4);
     const seasonality = [0.23, 0.24, 0.26, 0.27][q - 1];
     out.push({

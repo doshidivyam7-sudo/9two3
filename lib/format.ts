@@ -16,7 +16,9 @@ const inrIntFmt = new Intl.NumberFormat("en-IN", {
   maximumFractionDigits: 0,
 });
 
-const compactFmt = new Intl.NumberFormat("en-IN", {
+// Use en-US compact (K / M / B) for chart axes — the en-IN "T = thousand"
+// shorthand collides with the western "T = trillion" and confuses readers.
+const compactFmt = new Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 2,
 });
