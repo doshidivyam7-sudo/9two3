@@ -74,7 +74,7 @@ export function buildDeterministicComparison(input: ConcallComparisonInput): Con
       rows: rowsFor((s) =>
         s.orderBookCr ? `₹${s.orderBookCr.toLocaleString("en-IN")} Cr` : "Not reported",
       ),
-      insight: "Order book coverage = visibility on FY25; absent for service / financial businesses.",
+      insight: "Order book coverage = visibility on next 4–6 quarters; absent for service / financial businesses.",
     },
     {
       dimension: "Tone",
