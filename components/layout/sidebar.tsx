@@ -11,6 +11,7 @@ import {
   Settings,
   TrendingUp,
   FileText,
+  Filter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -20,6 +21,7 @@ const NAV_GROUPS = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/research", label: "Company Research", icon: LineChart },
+      { href: "/screener", label: "Screener", icon: Filter },
       { href: "/watchlist", label: "Watchlist", icon: Eye },
       { href: "/portfolio", label: "Portfolio", icon: Briefcase },
     ],
