@@ -1,8 +1,10 @@
 import { Briefcase, Plus } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PortfolioTable } from "./_table";
 import { AddHoldingDialog } from "./_add-holding";
+import { PortfolioAnalytics } from "./_analytics";
 
 export const dynamic = "force-dynamic";
 
@@ -15,15 +17,27 @@ export default function PortfolioPage() {
             <Briefcase className="h-5 w-5" /> Portfolio
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Track core holdings with live P&L and per-position notes.
+            Live P&L, allocation, concentration, and the weighted quality of the book.
           </p>
         </div>
         <AddHoldingDialog trigger={<Button><Plus className="h-3.5 w-3.5" /> Add holding</Button>} />
       </div>
-      <Card>
-        <CardHeader><CardTitle>Holdings</CardTitle></CardHeader>
-        <CardContent className="p-0"><PortfolioTable /></CardContent>
-      </Card>
+
+      <Tabs defaultValue="holdings">
+        <TabsList>
+          <TabsTrigger value="holdings">Holdings</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
+        </TabsList>
+        <TabsContent value="holdings" className="mt-6">
+          <Card>
+            <CardHeader><CardTitle>Holdings</CardTitle></CardHeader>
+            <CardContent className="p-0"><PortfolioTable /></CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="analytics" className="mt-6">
+          <PortfolioAnalytics />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
