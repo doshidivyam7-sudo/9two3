@@ -9,6 +9,7 @@ import { AIAnalysisSection } from "./_components/ai-analysis";
 import { NewsSection } from "./_components/news";
 import { DocumentsSection } from "./_components/documents";
 import { ConcallSection } from "./_components/concall";
+import { ChatSection } from "./_components/chat";
 import { TabsShell } from "./_components/tabs-shell";
 import { AnnouncementsFeed } from "@/components/announcements/announcements-feed";
 
@@ -51,6 +52,7 @@ export default async function CompanyResearchPage({ params }: Props) {
           { value: "concall", label: "Concall Intel", content: <ConcallSection ticker={ticker} /> },
           { value: "announcements", label: "Announcements", content: <AnnouncementsFeed ticker={ticker} title={`${ticker} — Corporate Announcements`} /> },
           { value: "ai", label: "AI Analysis", content: <AIAnalysisSection ticker={ticker} /> },
+          { value: "chat", label: "Ask Copilot", content: <ChatSection ticker={ticker} /> },
           { value: "news", label: "News", content: <NewsSection news={news} /> },
           { value: "documents", label: "Documents", content: <DocumentsSection ticker={ticker} /> },
         ]}
