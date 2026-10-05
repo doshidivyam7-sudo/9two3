@@ -22,6 +22,10 @@ export ANTHROPIC_API_KEY=sk-ant-...
 # Live data from Yahoo Finance (NSE tickers end in .NS, BSE in .BO)
 python -m screener_memo --screen screens/quality_value.toml --universe universes/nifty50.txt
 
+# The whole NSE main board (~2,600 names). Fetches are cached per ticker under
+# output/.cache/, so re-running resumes after Yahoo rate-limits.
+python -m screener_memo --screen screens/quality_value.toml --universe universes/nse_all.txt --fetch-workers 4
+
 # Or a fundamentals CSV, e.g. a Screener.in screen export
 python -m screener_memo --screen screens/deep_value.toml --csv my_export.csv --top 5
 ```
@@ -44,6 +48,8 @@ Useful flags:
   Pair it with `--dry-run` to get the data packs to write from.
 - `--no-web`: memos are written from the data pack only. This is cheaper, but recent news isn't checked.
 - `--effort low|medium|high|xhigh|max`: how hard Claude thinks per memo (default `medium`).
+- `--fetch-workers N`: parallel Yahoo requests (default 8; use 4 for whole-market runs).
+- `--cache DIR`: per-ticker fundamentals cache (default `<out>/.cache/yf_<date>`).
 - `--top N`, `--workers N`, `--model`, `--out`.
 
 ## Writing a screen
