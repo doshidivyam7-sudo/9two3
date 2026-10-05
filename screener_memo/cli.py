@@ -91,6 +91,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--effort", default="medium", choices=["low", "medium", "high", "xhigh", "max"])
     p.add_argument("--no-web", action="store_true", help="don't let Claude search the web")
     p.add_argument("--workers", type=int, default=4, help="memos written in parallel")
+    p.add_argument("--fetch-workers", type=int, default=8, help="parallel Yahoo requests")
+    p.add_argument("--cache", help="per-ticker fundamentals cache (default: <out>/.cache/yf_<date>); "
+                                   "re-running resumes a rate-limited fetch")
     p.add_argument("--screen-only", action="store_true", help="run the screen, skip memos")
     p.add_argument("--dry-run", action="store_true",
                    help="write the data pack Claude would see, without calling the API")
@@ -114,7 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         tickers = read_universe(args.universe)
         log.info("fetching fundamentals for %d tickers ...", len(tickers))
         mcap_floor = screen.filters.get("market_cap_cr", {}).get("min")
-        df = load_yfinance(tickers, min_mcap_cr=mcap_floor)
+        cache_dir = args.cache or Path(args.out) / ".cache" / f"yf_{dt.date.today().isoformat()}"
+        df = load_yfinance(tickers, workers=args.fetch_workers, min_mcap_cr=mcap_floor,
+                           cache_dir=cache_dir)
     n_universe = len(df)
 
     all_passed = run_screen(df, screen, top_n=len(df))

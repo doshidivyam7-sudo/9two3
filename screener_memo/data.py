@@ -151,23 +151,37 @@ def _yf_row(ticker: str, min_mcap_cr: float | None = None) -> dict:
 
 
 def load_yfinance(tickers: list[str], workers: int = 8,
-                  min_mcap_cr: float | None = None) -> pd.DataFrame:
+                  min_mcap_cr: float | None = None,
+                  cache_dir: str | Path | None = None) -> pd.DataFrame:
+    """Fetch every ticker. With cache_dir, each successful row is saved as JSON
+    and reused on the next run, so a rate-limited whole-market fetch can be
+    resumed by re-running the same command; only the misses are re-requested."""
+    import json
     import time
     from concurrent.futures import ThreadPoolExecutor
 
+    cache = Path(cache_dir) if cache_dir else None
+    if cache:
+        cache.mkdir(parents=True, exist_ok=True)
     rows = []
 
     def fetch(tk):
+        path = cache / f"{tk}.json" if cache else None
+        if path and path.exists():
+            return json.loads(path.read_text())
         for attempt in range(3):
             try:
-                return _yf_row(tk, min_mcap_cr)
+                row = _yf_row(tk, min_mcap_cr)
+                if path:
+                    path.write_text(json.dumps(row))
+                return row
             except Exception as e:
                 if "rate" in str(e).lower() or "too many" in str(e).lower():
-                    time.sleep(10 * (attempt + 1))
+                    time.sleep(30 * (attempt + 1))
                     continue
                 log.warning("skipping %s: %s", tk, e)
                 return None
-        log.warning("skipping %s: rate-limited", tk)
+        log.warning("skipping %s: rate-limited (re-run to retry)", tk)
         return None
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
