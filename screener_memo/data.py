@@ -64,7 +64,7 @@ def _yoy(series: pd.Series):
     return None
 
 
-def _yf_row(ticker: str) -> dict:
+def _yf_row(ticker: str, min_mcap_cr: float | None = None) -> dict:
     import yfinance as yf
 
     t = yf.Ticker(ticker)
@@ -104,6 +104,11 @@ def _yf_row(ticker: str) -> dict:
         "return_12m_pct": _pct(info.get("52WeekChange")),
         "summary": info.get("longBusinessSummary"),
     }
+
+    # Statements cost three more requests; skip them for names the market-cap
+    # filter will drop anyway (whole-market universes are mostly micro-caps).
+    if min_mcap_cr and row["market_cap_cr"] is not None and row["market_cap_cr"] < min_mcap_cr:
+        return row
 
     # 3-year revenue CAGR, ROCE and (when Yahoo omits it) ROE and market cap
     # from the annual statements, when present.
@@ -145,22 +150,32 @@ def _yf_row(ticker: str) -> dict:
     return row
 
 
-def load_yfinance(tickers: list[str], workers: int = 8) -> pd.DataFrame:
+def load_yfinance(tickers: list[str], workers: int = 8,
+                  min_mcap_cr: float | None = None) -> pd.DataFrame:
+    import time
     from concurrent.futures import ThreadPoolExecutor
 
     rows = []
 
     def fetch(tk):
-        try:
-            return _yf_row(tk)
-        except Exception as e:
-            log.warning("skipping %s: %s", tk, e)
-            return None
+        for attempt in range(3):
+            try:
+                return _yf_row(tk, min_mcap_cr)
+            except Exception as e:
+                if "rate" in str(e).lower() or "too many" in str(e).lower():
+                    time.sleep(10 * (attempt + 1))
+                    continue
+                log.warning("skipping %s: %s", tk, e)
+                return None
+        log.warning("skipping %s: rate-limited", tk)
+        return None
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for row in pool.map(fetch, tickers):
+        for i, row in enumerate(pool.map(fetch, tickers), 1):
             if row:
                 rows.append(row)
+            if i % 250 == 0:
+                log.info("  fetched %d / %d", i, len(tickers))
     if not rows:
         raise RuntimeError("yfinance returned no data for any ticker (network blocked?)")
     return _normalise(pd.DataFrame(rows))

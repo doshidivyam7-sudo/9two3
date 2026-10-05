@@ -113,7 +113,8 @@ def main(argv: list[str] | None = None) -> int:
         universe_label = Path(args.universe).name
         tickers = read_universe(args.universe)
         log.info("fetching fundamentals for %d tickers ...", len(tickers))
-        df = load_yfinance(tickers)
+        mcap_floor = screen.filters.get("market_cap_cr", {}).get("min")
+        df = load_yfinance(tickers, min_mcap_cr=mcap_floor)
     n_universe = len(df)
 
     all_passed = run_screen(df, screen, top_n=len(df))
