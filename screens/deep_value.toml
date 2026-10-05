@@ -1,0 +1,22 @@
+# Beaten-down but cash generative: the screen most prone to value traps,
+# which is exactly what the memo step is there to catch.
+
+name = "Deep value, cash generative"
+description = "Cheap on earnings and book, well off the 52-week high, but still generating free cash."
+top_n = 10
+
+[filters]
+market_cap_cr      = { min = 1000 }
+pe                 = { min = 0, max = 15 }
+pb                 = { max = 2.5, allow_missing = true }
+fcf_yield_pct      = { min = 4 }
+pct_from_52w_high  = { max = -20 }
+
+[rank]
+fcf_yield_pct      = 1.0
+pe                 = -1.0
+pb                 = -0.5
+roe_pct            = 0.5
+
+[memo]
+mandate = "Contrarian value sleeve; must distinguish a temporary drawdown from a structural decline."
